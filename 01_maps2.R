@@ -99,6 +99,9 @@ highways_sampled <- st_line_sample(highways_transformed,
 highways_sampled_cast <- st_cast(highways_sampled, "POINT")
 length(highways_sampled_cast)
 
+highways_sampled_cast_df <- st_coordinates(highways_sampled_cast)
+head(highways_sampled_cast_df)
+
 # Remove points within a 1-mile buffer of each other
 buffer_distance <- units::set_units(1, "mile")
 
@@ -115,21 +118,95 @@ ggplot() +
 
 
 # Function to select the maximum non-overlapping subset of buffers
-# this takes ~ 45 minutes
-select_non_overlapping_buffers <- function(buffers) {
-  selected_indices <- c()
-  for (i in seq_len(length(buffers))) {
-    if(i && 1000 == 0) timestamp(suffix = paste(" >", i))
-    if (length(selected_indices) == 0 || all(!st_intersects(buffers[i], buffers[selected_indices], sparse = FALSE))) {
-      selected_indices <- c(selected_indices, i)
-    }
-  }
-  return(selected_indices)
-}
+# this takes ~ 45 minutes for 63,144 nodes
+
+# wait you don't need to do buffers, just do distance
+
+# or you could do st_union
+
+# ********
+# -- YOU CAN MAKE THIS FASTER, THIS DOUBLE COUNTS
+# ********
+# select_non_overlapping_buffers <- function(buffers) {
+#   selected_indices <- c()
+#   for (i in seq_len(length(buffers))) {
+#     if(i && 1000 == 0) timestamp(suffix = paste(" >", i))
+#     if (length(selected_indices) == 0 || 
+#         all(!st_intersects(buffers[i], buffers[selected_indices], sparse = FALSE))) {
+#       selected_indices <- c(selected_indices, i)
+#     }
+#   }
+#   return(selected_indices)
+# }
+# 
+# select_non_overlapping_buffers2 <- function(buffers) {
+#   selected_indices <- c()
+#   for (i in seq_len(length(buffers))) {
+#     if(i && 1000 == 0) timestamp(suffix = paste(" >", i))
+#     if (length(selected_indices) == 0 || 
+#         !st_intersects(buffers[i], super_buffer, sparse = FALSE)) {
+#       selected_indices <- c(selected_indices, i)
+#       if(i == 1) {
+#         super_buffer = buffers[i]
+#       } else {
+#         super_buffer <- st_union(super_buffer, buffers[i])
+#       }
+#     }
+#   }
+#   return(selected_indices)
+# }
+# 
+# library(pbapply)
+# 
+# select_non_overlapping_buffers3 <- function(pts) {
+#   selected_indices <- c()
+#   print(nrow(pts))
+#   for (i in seq_len(nrow(pts))) {
+#     print(i)
+#     if(i && 1000 == 0) timestamp(suffix = paste(" >", i))
+#     length0 <- length(selected_indices) == 0
+#     if(length(selected_indices) == 0) {
+#       within_radius = F
+#     } else {
+#       # buffers[i], buffers[selected_indices]
+#       within_radius <- sapply(selected_indices, function(s_idx) {
+#         sqrt((highways_sampled_cast_df[i,1] - highways_sampled_cast_df[s_idx, 1])^2 +
+#                (highways_sampled_cast_df[i,2] - highways_sampled_cast_df[s_idx, 2])^2) 
+#       })
+#       print(within_radius)
+#     }
+#     if (length0 || all(! within_radius <= 1609.34)) selected_indices <- c(selected_indices, i)
+#   }
+#   return(selected_indices)
+# }
 
 # Select non-overlapping buffers
 # doesn't take too long, maybe an hour
-selected_indices <- select_non_overlapping_buffers(buffers)
+# selected_indices <- select_non_overlapping_buffers(buffers)
+# selected_indices <- select_non_overlapping_buffers2(buffers)
+# selected_indices <- select_non_overlapping_buffers3(highways_sampled_cast_df[1:2,])
+# selected_indices
+
+# system("R CMD SHLIB get_buffers.f90")
+# dyn.unload("get_buffers.so")
+dyn.load("get_buffers.so")
+oo <- .Fortran("select_non_overlapping_buffers3",
+         pts = as.matrix(highways_sampled_cast_df),
+         n = as.integer(nrow(highways_sampled_cast_df)),
+         selected_indices = rep(as.integer(0), nrow(highways_sampled_cast_df)),
+         buffer_dist = 1609.34 * 2) # 1 mile * 2 for overlapping radii
+
+# head(oo$selected_indices)
+# 
+# ggplot() + 
+#   geom_sf(data = buffers[1], fill = NA) +
+#   geom_sf(data = buffers[2:18], fill = NA, color = 'red') +
+#   geom_sf(data = buffers[19], fill = NA, color = 'blue')
+# 
+# plot(buffers[1])
+# plot(buffers[2], col = 'red')
+
+# which(oo$selected_indices != 0) 
 
 # Filter points based on the selected indices
 filtered_buffers <- buffers[selected_indices, ]
@@ -146,5 +223,7 @@ ggplot() +
 
 save(list = ls(), file = 'all_objects.RData')
 
-
-
+# load("all_objects.RData")
+# baseIDX <- selected_indices
+# head(baseIDX)
+# head(oo$selected_indices)

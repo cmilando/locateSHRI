@@ -30,6 +30,10 @@ head(population_dots)
 # distance formula
 # ^ you only need to calculate this once
 # and can be done outside of the loop
+
+# and you could also do this in FORTRAN again, could do great-circle distance
+# if you really wanted to
+
 site_pairs <- expand_grid(site_id = 1:nrow(potential_sites),
                           pop_id = 1:nrow(population_dots))
 
@@ -103,9 +107,6 @@ start <- c(1, lag(end)[-1] + 1)
 xx <- data.frame(site_id = unique(site_pairs_sub$site_id), start, end)
 head(xx)
 
-
-
-
 #### WHAT ARE YOU PASSING IN
 head(xx)
 
@@ -132,7 +133,7 @@ length(S_ones)
 # this has to be a group multiplier, not sequential
 
 ##
-get_score <- function(S) {
+get_score <- function(S_ones) {
   
   # get just the points for this sample
   yy <- do.call(rbind,lapply(1:length(S_ones), function(i) {

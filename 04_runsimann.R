@@ -1,22 +1,6 @@
 source("03_prep_simann.R")
 
-which(S == 1)
-get_score(S)
-
-dyn.unload("get_score.so")
-dyn.load("get_score.so")
-oo <- .Fortran("get_f_score",
-         S = as.integer(S),
-         magic_n = as.integer(length(which(S == 1))),
-         np = as.integer(nrow(site_pairs_sub)),
-         nsites = as.integer(length(unique(site_pairs_sub$site_id))),
-         #npoppts = as.integer(length(unique(site_pairs_sub$pop_id))),
-         site_pairs_sub = aa,
-         row_lookup = bb,
-         penalty = 1,
-         SCORE = 0.)
-
-
+system("R CMD SHLIB simann.f90")
 dyn.unload("simann.so")
 dyn.load("simann.so")
 oo <- .Fortran("simann",
@@ -24,19 +8,21 @@ oo <- .Fortran("simann",
                magic_n = as.integer(length(which(S == 1))),
                np = as.integer(nrow(site_pairs_sub)),
                nsites = as.integer(length(unique(site_pairs_sub$site_id))),
-               #npoppts = as.integer(length(unique(site_pairs_sub$pop_id))),
                site_pairs_sub = aa,
                row_lookup = bb,
                penalty = 1,
-               SCORE = 0.)
+               SCORE = 0.,
+               cooling_rate = 0.95) # the closer to 1 the slower the cooling. 0.92 is fast
 
+# confirming math
 which(oo$S == 1)
+get_score(which(oo$S == 1))
 oo$SCORE
 
 pop_pts <- site_pairs_sub %>% filter(site_id %in% which(oo$S == 1)) %>% pull(pop_id)
 
 final_buffers <- st_buffer(filtered_points[which(oo$S == 1), ], RADIUS <- 20 * 1609.34)
-plot(final_buffers)
+# plot(final_buffers)
 
 ggplot() +
   geom_sf(data = state_map_sf, fill = "white", color = "black") +

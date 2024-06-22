@@ -124,7 +124,7 @@ end
 !
 ! informed by sci-kits sko SA.py
 ! ------------------------------------------------------------------------------------
-subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, SCORE)
+subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, SCORE, cooling_rate)
     
     !  Temp_max, Temp_min, cooling_rate
 
@@ -157,7 +157,7 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
     real(kind = 8) :: Temp_curr  ! 
     real(kind = 8) :: Temp_max   ! 
     real(kind = 8) :: Temp_min   ! 
-    real(kind = 8) :: cooling_rate
+    real(kind = 8) :: cooling_rate, curr_rel_tol, abs_score_diff
     integer :: LoC
     integer :: stay_counter
     integer :: max_stay_counter
@@ -167,16 +167,16 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
     ! --------------------------------------------------------
     ! Initialize
     call random_seed()
-    rel_tol          = 1.0e-3
-    abs_tol          = 1.0e-6
-    LoC              = 300
-    max_stay_counter = 300
+    rel_tol          = 1.0e-2
+    abs_tol          = 1.0e-3
+    LoC              = 500
+    max_stay_counter = 500
     stay_counter     = 0
     cycle_i          = 0
-    SCOREbest        = -999.
+    SCOREbest        = 0.
     Temp_max         = 500000.
     Temp_min         = 0.0000000001
-    cooling_rate     = 0.95
+    !cooling_rate     = 0.95
     Temp_curr        = Temp_max
 
     ! **************
@@ -222,7 +222,7 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
             df = SCORE - SCOREprev
             call random_number(rv)
             if (df < 0.0 .or. exp(-df / Temp_curr) > rv) then
-                Sprev  = S       ! x_current = x_new
+                Sprev  = S             ! x_current = x_new
                 SCOREprev = SCORE      ! y_current = y_new
                 if (SCORE < SCOREbest) then
                     !write(*, *) "best updated", cycle_i, iter_i
@@ -247,7 +247,9 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
         ! SCOREbest was just updated, and so you should have the best past 3
         ! so now, check stay counter
         ! Need to check that this works correctly ....
-        if(abs(SCOREbest1 - SCOREbest2) <= max(rel_tol * max(abs(SCOREbest1), abs(SCOREbest2)), abs_tol)) then
+        abs_score_diff = abs(SCOREbest1 - SCOREbest2)
+        curr_rel_tol = rel_tol * max(abs(SCOREbest1), abs(SCOREbest2))
+        if(abs_score_diff <= max(curr_rel_tol, abs_tol)) then
             stay_counter = stay_counter + 1
         else 
             stay_counter = 0
@@ -257,6 +259,10 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
         ! Condition !: temperature   
         if (Temp_curr .lt. Temp_min) then
             write(*,*) "Cooled to final temperature"
+            write(*,*) "Stay counter: ", stay_counter
+            write(*,*) "abs score diff", abs_score_diff
+            write(*,*) "curr_rel_tol", curr_rel_tol
+            write(*,*) "abs_tol", abs_tol
             go to 99
         end if
 
