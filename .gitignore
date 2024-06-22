@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+*.RData
+*.so
+*.o
+*.pptx
