@@ -12,11 +12,11 @@ oo <- .Fortran("simann",
                row_lookup = bb,
                penalty = 1,
                SCORE = 0.,
-               cooling_rate = 0.95) # the closer to 1 the slower the cooling. 0.92 is fast
+               cooling_rate = 0.95,
+               verbose = as.integer(1)) # the closer to 1 the slower the cooling. 0.92 is fast
 
 # confirming math
-which(oo$S == 1)
-get_score(which(oo$S == 1))
+get_score(oo$S)
 oo$SCORE
 
 pop_pts <- site_pairs_sub %>% filter(site_id %in% which(oo$S == 1)) %>% pull(pop_id)

@@ -8,34 +8,110 @@
 !--------------------------------------------------------------------------
 ! Subroutine for swapping discrete neighbors
 !--------------------------------------------------------------------------
-subroutine get_neighbor(x0, x1, l)
+subroutine get_neighbor2(x0, x1, l, nS, cc, nzones, stopcond)
     
     implicit none
 
-    integer :: l
+    integer :: l, nS, failure_count, failure_max, stopcond
     real    :: p0, p1
-    integer :: p0_int, p1_int
-    integer :: x0(l), x1(l)
+    integer :: p0_int, p1_int, idx0, i, count
+    integer :: x0(l), x1(l), xtmp(l)
+    integer :: cc(l)                   ! matrix for contraints
+    integer :: nzones, zone_i                  ! 
+    integer :: mult(l)
+
+    ! integer
+    failure_count = 0
+    failure_max = 100
 
     ! Initialize x1 to be x0
     x1 = x0
+
+
+    !write(*,*) "*****"
+
+9   xtmp = x0
 
     ! now swap two indices
     ! random_number is [0, 1)
     ! FORTRAN arrays start at 1
     ! because this will give you [0,1] you need to adjust l by 1
+
+    ! first get a random S=1
     call random_number(p0)
-    p0_int = floor(p0 * real(l)) + 1
+    p0_int = floor(p0 * real(nS)) + 1
+    idx0 = 0
+    count = 0
+    !write(*,*) 'p0: ', p0_int
+    
+    ! Loop through x0 to find the p0_int-th 1
+    do i = 1, l
+        if (x0(i) == 1) then
+            count = count + 1
+            if (count == p0_int) then
+                idx0 = i
+                exit
+            end if
+        end if
+    end do
+    ! so now now idx0 = the xth 1
+    !write(*,*) 'idx0: ', idx0
 
  10 call random_number(p1)
     p1_int = floor(p1 * real(l)) + 1
     ! these cannot be the same so, try again if so
     ! Note: This is how you ensure you have all different indices
-    if (x0(p1_int) .eq. x0(p0_int) ) go to 10
+    ! because this prevents swapping a 0 with a 0, or a 1 with a 1
+    if (x0(p1_int) .eq. x0(idx0) ) go to 10
+    !write(*,*) 'p1_int: ', p1_int
 
-    x1(p0_int) = x0(p1_int)
-    x1(p1_int) = x0(p0_int)
+    ! here is where you decide what constraints to have
+    ! so x0 is all 0s and 1s
+    ! and cc is [1, 1, 1, ..., 2, 2, 2, ... ]
+    ! and nzones is 3
+    ! so x0 * cc elementwise will give [1, 0, 1, .., 2, 0, 2, ...]
+    ! and I guess nzones could mean, there must be 1, 2, 3 in x0 * cc elementwise
+    !do i = 1, l
+    !    if(x0(i) .gt. 0) write(*,*) 'x0:', i, x0(i)
+    !end do
 
+    xtmp(idx0) = x0(p1_int)
+    xtmp(p1_int) = x0(idx0)
+
+    !do i = 1, l
+    !    if(xtmp(i) .gt. 0) write(*,*) 'xtmp:', i, xtmp(i)
+    !end do
+
+    do i = 1,l
+        mult(i) = 0
+        if(xtmp(i) .gt. 0) mult(i) = cc(i)
+    end do
+
+    !do i = 1, l
+    !    if(mult(i) .gt. 0) then
+    !        write(*,*) 'mult:', i, mult(i)
+    !    end if
+    !end do
+
+    failure_count = failure_count + 1
+    if(failure_count >= failure_max) then
+        stopcond = 1
+        go to 88
+    end if
+
+    ! Check for the presence of all zone values in the result
+    ! huh, if you get 2 out of sync this isn't going to work
+    ! so this probably means you need to start with one point in each zone
+    ! so maybe this works now that you are guaranteed to start with a new s=1 each time
+    do zone_i = 1, nzones
+        if (.not. any(mult == zone_i)) go to 9
+    end do
+
+    ! Return x1
+    ! write(*,*) 'Found a good neighbor'
+    x1 = xtmp
+    
+88  if(failure_count >= failure_max) write(*, *) 'fail exiting'
 end
 
 !--------------------------------------------------------------------------
@@ -124,7 +200,7 @@ end
 !
 ! informed by sci-kits sko SA.py
 ! ------------------------------------------------------------------------------------
-subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, SCORE, cooling_rate, verbose)
+subroutine simann_constrain(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, SCORE, cooling_rate, cc, nzones, verbose)
     
     !  Temp_max, Temp_min, cooling_rate
 
@@ -142,6 +218,10 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
     integer              :: S(nsites)              ! S, a specific iteration of the magic indicator
     integer              :: Sprev(nsites)                !  , a prevoious iteration of the magic indicator
     integer              :: Sbest(nsites)                !  , the best
+    integer              :: cc(nsites)                   ! matrix for contraints
+    integer              :: nzones
+    integer              :: verbose
+    integer :: stopcond, i
 
     real(kind=8)         :: SCORE                        !  
     real(kind=8)         :: SCOREprev                    !  
@@ -150,8 +230,6 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
 
     real(kind=8)         :: df             ! comparison of SCOREs
     real(kind=8)         :: rv             ! random variable to check
-
-    integer :: verbose
 
     real(kind=8) :: rel_tol, abs_tol
 
@@ -192,6 +270,8 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
     SCOREbest2 = SCORE
     ! **************
 
+    stopcond = 0
+
     if(verbose .eq. 1) write(*, *) "Started"
 
     ! Simulated Annealing Loop
@@ -208,12 +288,16 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
         ! Loop for all L in a specific chain
         do iter_i = 1, LoC
 
-            if(verbose .eq. 1 .and. mod(iter_i, 100) .eq. 0) write(*, *) iter_i
+            !if(verbose .eq. 1) write(*, *) iter_i
             
             ! get a new x. so S becomes a new version of Sprev
             ! so x_current = Sprev
             ! and x_new = S
-            call get_neighbor(Sprev, S, nsites)
+            call get_neighbor2(Sprev, S, nsites, magic_n, cc, nzones, stopcond)
+            if(stopcond .eq. 1) go to 99
+            !do i = 1, nsites
+            !    if(S(i) .gt. 0) write(*,*) 'x1:', i, S(i)
+            !end do
 
             ! calculate a new y. so this updates the value of SCORE
             ! similarly, y_current = SCOREprev

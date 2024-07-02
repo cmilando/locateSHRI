@@ -91,6 +91,7 @@ summary(site_pairs_sub)
 beta_weights <- c(10, 4)
 
 score = as.matrix(site_pairs_sub[, c('population', 'metric1')]) %*% beta_weights
+
 site_pairs_sub$score = as.vector(score)
 
 head(site_pairs_sub)
@@ -126,35 +127,35 @@ set.seed(123)
 
 
 #S_ones = sample(xx$site_id, size = length(), replace = F)
-S_ones <- S[which(S == 1)]
-S_ones
-length(S_ones)
+
 # (2) update the indicator column
 # this has to be a group multiplier, not sequential
 
-##
-get_score <- function(S_ones) {
-  
+#
+get_score <- function(S_local) {
+
+  S_ones <- which(S_local == 1)
+
   # get just the points for this sample
   yy <- do.call(rbind,lapply(1:length(S_ones), function(i) {
     this_block <- xx[S_ones[i],]
     site_pairs_sub[this_block$start:this_block$end, ]
   }))
-  
+
   ## now make a frequency table of pop_id
   ## you could probably do this differently
   ## in a way that only requires going through the list once
   freq <- data.frame(table(yy$pop_id), stringsAsFactors = F)
   names(freq) <- c("pop_id", 'freq')
   freq$pop_id <- as.integer(as.character(freq$pop_id))
-  
+
   yy <- left_join(yy, freq, by = join_by(pop_id))
-  
+
   yy$score2 <- yy$score * 1 / (penalty * yy$freq)
-  
+
   ## get sum
-  sum(yy$score2)
-  
+  -1*sum(yy$score2)
+
 }
 
 get_score(S)
