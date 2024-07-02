@@ -221,7 +221,7 @@ subroutine simann_constrain(S, magic_n, np, nsites, site_pairs_sub, row_lookup, 
     integer              :: cc(nsites)                   ! matrix for contraints
     integer              :: nzones
     integer              :: verbose
-    integer :: stopcond, i
+    integer :: stopcond
 
     real(kind=8)         :: SCORE                        !  
     real(kind=8)         :: SCOREprev                    !  
@@ -311,7 +311,7 @@ subroutine simann_constrain(S, magic_n, np, nsites, site_pairs_sub, row_lookup, 
                 Sprev  = S             ! x_current = x_new
                 SCOREprev = SCORE      ! y_current = y_new
                 if (SCORE < SCOREbest) then
-                    if(verbose .eq. 1) write(*, *) "best updated", cycle_i, iter_i
+                    if(verbose .eq. 1) write(*, *) "best updated", cycle_i, SCORE
                     Sbest  = S
                     SCOREbest = SCORE
                 end if

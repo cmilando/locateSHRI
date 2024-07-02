@@ -208,7 +208,7 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
         ! Loop for all L in a specific chain
         do iter_i = 1, LoC
 
-            if(verbose .eq. 1 .and. mod(iter_i, 100) .eq. 0) write(*, *) iter_i
+            !if(verbose .eq. 1 .and. mod(iter_i, 100) .eq. 0) write(*, *) iter_i
             
             ! get a new x. so S becomes a new version of Sprev
             ! so x_current = Sprev
@@ -227,7 +227,7 @@ subroutine simann(S, magic_n, np, nsites, site_pairs_sub, row_lookup, penalty, S
                 Sprev  = S             ! x_current = x_new
                 SCOREprev = SCORE      ! y_current = y_new
                 if (SCORE < SCOREbest) then
-                    if(verbose .eq. 1) write(*, *) "best updated", cycle_i, iter_i
+                    if(verbose .eq. 1) write(*, *) "best updated", cycle_i, SCORE
                     Sbest  = S
                     SCOREbest = SCORE
                 end if

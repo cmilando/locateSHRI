@@ -42,9 +42,17 @@ save(list = ls(), file = "test_objects.Rdata")
 
 load("test_objects.Rdata")
 
+## ----------
+## THIS IS ESSENTIAL
+## FOR THIS CONSTRAINT TO WORK YOU HAVE TO MAKE SURE THAT
+## EACH ZONE HAS 1 NODE IN IT TO BEGIN WITH,
+## OTHERWISE IT WILL HAVE TO SWAP 2 or MORE IN THE NEIGBHOR STEP
+stopifnot(1:nzones %in% unique(S * cc))
+## ------------
+
 # obviously takes slower
 system("R CMD SHLIB simann_constrain.f90")
-#dyn.unload("simann_constrain.so")
+dyn.unload("simann_constrain.so")
 dyn.load("simann_constrain.so")
 
 oo <- .Fortran("simann_constrain",
@@ -59,12 +67,12 @@ oo <- .Fortran("simann_constrain",
                cooling_rate = 0.95,
                cc = cc,
                nzones = nzones,
-               verbose = as.integer(1)
-               ) 
+               verbose = as.integer(1)) 
 
 # confirming math
 which(S == 1)
 which(oo$S == 1)
+
 library(tidyverse)
 library(sf)
 get_score(oo$S)
